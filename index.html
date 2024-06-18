@@ -1,1 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Life Calendar</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        .container {
+            display: flex;
+            width: calc(100vw - 2in);
+            height: calc(56.25vw - 2in); /* 16:9 ratio */
+            max-height: calc(100vh - 2in);
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .calendar-section {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+        }
+        .input-container {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(52, 1fr);
+            grid-template-rows: repeat(100, 1fr);
+            gap: 1px;
+            width: 100%;
+            height: calc(100% - 40px); /* Adjust to leave space for input */
+        }
+        .square {
+            width: 100%;
+            position: relative;
+            background-color: #d3d3d3;
+            cursor: pointer;
+        }
+        .square.lived {
+            background-color: #4caf50;
+        }
+        .square:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px;
+            border-radius: 5px;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .info-section {
+            flex: 1;
+            margin-left: 20px;
+            padding: 20px;
+            background-color: #fff;
+            border-left: 1px solid #ccc;
+            box-shadow: -5px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+        .info-section h2 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="calendar-section">
+            <div class="input-container">
+                <label for="dob">Enter your Date of Birth: </label>
+                <input type="date" id="dob">
+                <button onclick="generateLifeCalendar()">Generate Life Calendar</button>
+            </div>
+            <div class="grid" id="lifeCalendar"></div>
+        </div>
+        <div class="info-section">
+            <h2>Life Calendar</h2>
+            <p>
+                The Life Calendar is a visual representation of your life in weeks. Each square represents one week of your life, and the grid contains a total of 5200 squares, representing 100 years.
+            </p>
+            <p>
+                To use the Life Calendar, enter your date of birth in the input field and click "Generate Life Calendar". The squares will be colored to show the weeks you have already lived.
+            </p>
+            <p>
+                When you hover over a square, a tooltip will display the time in years and weeks, providing a clear indication of your age at that specific week.
+            </p>
+            <p>
+                The Life Calendar is a powerful reminder of the passage of time and can help you reflect on your life and prioritize what is truly important to you.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function calculateWeeks(dob) {
+            const birthDate = new Date(dob);
+            const today = new Date();
+            const diffTime = Math.abs(today - birthDate);
+            return Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
+        }
+
+        function generateLifeCalendar() {
+            const dob = document.getElementById('dob').value;
+            if (!dob) return;
+            
+            const weeksLived = calculateWeeks(dob);
+            const grid = document.getElementById('lifeCalendar');
+            grid.innerHTML = '';
+            
+            for (let i = 0; i < 5200; i++) {
+                const square = document.createElement('div');
+                square.className = 'square';
+                if (i < weeksLived) {
+                    square.classList.add('lived');
+                }
+                
+                const years = Math.floor(i / 52);
+                const weeks = i % 52;
+                const tooltipText = `${years} years, ${weeks} weeks`;
+                
+                square.setAttribute('data-tooltip', tooltipText);
+                grid.appendChild(square);
+            }
+        }
+    </script>
+</body>
+</html>
 

@@ -1,145 +1,1673 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Life Calendar</title>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            box-sizing: border-box;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-        }
-        .container {
-            display: flex;
-            width: calc(100vw - 2in);
-            height: calc(56.25vw - 2in); /* 16:9 ratio */
-            max-height: calc(100vh - 2in);
-            background-color: #f0f0f0;
-            border: 1px solid #ccc;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        .calendar-section {
-            flex: 2;
-            display: flex;
-            flex-direction: column;
-        }
-        .input-container {
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(52, 1fr);
-            grid-template-rows: repeat(100, 1fr);
-            gap: 1px;
-            width: 100%;
-            height: calc(100% - 40px); /* Adjust to leave space for input */
-        }
-        .square {
-            width: 100%;
-            position: relative;
-            background-color: #d3d3d3;
-            cursor: pointer;
-        }
-        .square.lived {
-            background-color: #4caf50;
-        }
-        .square:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 5px;
-            border-radius: 5px;
-            white-space: nowrap;
-            z-index: 10;
-        }
-        .info-section {
-            flex: 1;
-            margin-left: 20px;
-            padding: 20px;
-            background-color: #fff;
-            border-left: 1px solid #ccc;
-            box-shadow: -5px 0 10px rgba(0,0,0,0.1);
-            overflow-y: auto;
-        }
-        .info-section h2 {
-            margin-top: 0;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Life Weeks — Interactive Life Calendar</title>
+  <style>
+    :root {
+      --bg: #080b12;
+      --bg2: #111827;
+      --panel: rgba(18, 25, 39, 0.86);
+      --panel2: rgba(255,255,255,0.055);
+      --panel3: rgba(255,255,255,0.09);
+      --line: rgba(255,255,255,0.14);
+      --line2: rgba(255,255,255,0.22);
+      --text: #f4f7fb;
+      --muted: #a8b3c7;
+      --soft: #7987a3;
+      --accent: #78f2c2;
+      --accent2: #f6c45c;
+      --danger: #ff7c8a;
+      --lived: #3ce0a0;
+      --future: #2a3142;
+      --shadow: rgba(0,0,0,0.45);
+      --radius: 22px;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      min-height: 100%;
+      margin: 0;
+      background:
+        radial-gradient(circle at 14% 9%, rgba(120, 242, 194, 0.16), transparent 30%),
+        radial-gradient(circle at 87% 10%, rgba(246, 196, 92, 0.12), transparent 32%),
+        linear-gradient(135deg, #05070b 0%, var(--bg) 42%, #0e1524 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow-x: hidden;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1540px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 18px 0 22px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 58px);
+      line-height: 0.94;
+      letter-spacing: -0.065em;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: clamp(14px, 1.25vw, 17px);
+      line-height: 1.45;
+      max-width: 820px;
+    }
+
+    .headline-metric {
+      justify-self: end;
+      min-width: 320px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.035));
+      box-shadow: 0 18px 46px var(--shadow);
+    }
+
+    .metric-big {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      font-size: 15px;
+      color: var(--muted);
+    }
+
+    .metric-big strong {
+      color: var(--text);
+      font-size: clamp(26px, 3vw, 44px);
+      letter-spacing: -0.06em;
+      line-height: 1;
+    }
+
+    .progress-shell {
+      position: relative;
+      height: 12px;
+      margin-top: 10px;
+      border-radius: 99px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #33d79d, #f6c45c 72%, #ff7c8a);
+      box-shadow: 0 0 22px rgba(120,242,194,0.28);
+      transition: width 380ms ease;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1.08fr 1.35fr auto;
+      gap: 12px;
+      margin-bottom: 14px;
+      align-items: stretch;
+    }
+
+    .control-card, .chart-card, .side-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: 0 18px 48px var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .control-card {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      align-content: center;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label, .section-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.105em;
+      text-transform: uppercase;
+    }
+
+    input[type="date"], input[type="number"], input[type="text"], select {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0,0,0,0.24);
+      color: var(--text);
+      padding: 0 12px;
+      outline: none;
+    }
+
+    input[type="date"]:focus, input[type="number"]:focus, input[type="text"]:focus, select:focus {
+      border-color: rgba(120,242,194,0.72);
+      box-shadow: 0 0 0 4px rgba(120,242,194,0.1);
+    }
+
+    .range-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      grid-column: 1 / -1;
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .view-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      min-width: 250px;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.07);
+      color: var(--text);
+      min-height: 44px;
+      padding: 9px 12px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 130ms ease, border-color 130ms ease, background 130ms ease, opacity 130ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(120,242,194,0.55);
+      background: rgba(255,255,255,0.115);
+    }
+
+    button:active { transform: translateY(1px); }
+
+    button.active {
+      background: linear-gradient(180deg, rgba(120,242,194,0.28), rgba(120,242,194,0.09));
+      border-color: rgba(120,242,194,0.8);
+      color: #eafff7;
+    }
+
+    .primary {
+      background: linear-gradient(180deg, rgba(120,242,194,0.31), rgba(59,205,147,0.13));
+      border-color: rgba(120,242,194,0.42);
+    }
+
+    .warm {
+      background: linear-gradient(180deg, rgba(246,196,92,0.27), rgba(246,196,92,0.08));
+      border-color: rgba(246,196,92,0.42);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 14px;
+      min-height: 620px;
+    }
+
+    .chart-card {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(420px, 1fr) auto;
+      overflow: hidden;
+    }
+
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px 11px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .chart-title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .chart-title strong {
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .chart-title span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .chart-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .badge {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: rgba(255,255,255,0.055);
+      white-space: nowrap;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-height: 420px;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, rgba(120,242,194,0.05), transparent 48%);
+      background-size: 28px 28px, 28px 28px, auto;
+      cursor: crosshair;
+      user-select: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 30px;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .empty-card {
+      width: min(560px, 92%);
+      border: 1px solid var(--line2);
+      border-radius: 28px;
+      background: rgba(5,7,11,0.62);
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.42);
+    }
+
+    .empty-card h2 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 4vw, 46px);
+      letter-spacing: -0.06em;
+      line-height: 1;
+    }
+
+    .empty-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .floating-tip {
+      position: absolute;
+      z-index: 4;
+      min-width: 246px;
+      max-width: 310px;
+      pointer-events: none;
+      transform: translate(16px, 16px);
+      border: 1px solid rgba(120,242,194,0.45);
+      border-radius: 18px;
+      background: rgba(6, 10, 18, 0.92);
+      box-shadow: 0 18px 46px rgba(0,0,0,0.48), 0 0 0 1px rgba(255,255,255,0.045) inset;
+      padding: 12px;
+      opacity: 0;
+      transition: opacity 100ms ease;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .floating-tip.visible { opacity: 1; }
+
+    .tip-kicker {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+    }
+
+    .tip-main {
+      font-size: 25px;
+      font-weight: 900;
+      letter-spacing: -0.055em;
+      margin-top: 3px;
+    }
+
+    .tip-sub {
+      color: var(--muted);
+      margin-top: 4px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .chart-footer {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+      white-space: nowrap;
+    }
+
+    .swatch {
+      width: 13px;
+      height: 13px;
+      border-radius: 4px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.18) inset;
+    }
+
+    .side-panel {
+      min-width: 0;
+      padding: 12px;
+      display: grid;
+      gap: 9px;
+      align-content: start;
+      overflow-y: auto;
+      overflow-x: hidden;
+      max-height: calc(100vh - 176px);
+    }
+
+    .readout {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.035));
+      padding: 12px;
+    }
+
+    .readout .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.105em;
+      text-transform: uppercase;
+    }
+
+    .readout .value {
+      margin-top: 5px;
+      font-size: clamp(24px, 2.3vw, 32px);
+      line-height: 1.03;
+      letter-spacing: -0.055em;
+      font-weight: 950;
+      overflow-wrap: anywhere;
+    }
+
+    .readout .sub {
+      margin-top: 7px;
+      color: var(--muted);
+      line-height: 1.35;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .stat {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--panel2);
+      padding: 10px;
+      min-height: 72px;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0.075em;
+      text-transform: uppercase;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 5px;
+      font-size: clamp(18px, 1.65vw, 23px);
+      line-height: 1.03;
+      letter-spacing: -0.045em;
+      overflow-wrap: anywhere;
+    }
+
+    .stat small {
+      display: block;
+      margin-top: 4px;
+      color: var(--soft);
+      line-height: 1.25;
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+
+    .target-card {
+      min-width: 0;
+      border: 1px solid rgba(190,159,255,0.34);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(190,159,255,0.12), rgba(255,255,255,0.035));
+      padding: 10px;
+      display: grid;
+      gap: 9px;
+    }
+
+    .target-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .target-title {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle input {
+      width: 17px;
+      height: 17px;
+      accent-color: rgb(190,159,255);
+    }
+
+    .target-input-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .target-input-row .field input {
+      min-height: 38px;
+      border-radius: 12px;
+      padding: 0 10px;
+    }
+
+    .target-input-row button {
+      min-height: 38px;
+      padding: 7px 10px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+
+    .target-result {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(0,0,0,0.18);
+      padding: 9px;
+    }
+
+    .target-result strong {
+      display: block;
+      font-size: 20px;
+      line-height: 1.05;
+      letter-spacing: -0.045em;
+      overflow-wrap: anywhere;
+    }
+
+    .target-result small {
+      display: block;
+      margin-top: 4px;
+      color: var(--soft);
+      font-size: 11px;
+      line-height: 1.28;
+      overflow-wrap: anywhere;
+    }
+
+
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .keyboard {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(0,0,0,0.18);
+      padding: 10px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    kbd {
+      display: inline-block;
+      min-width: 1.55em;
+      padding: 1px 6px;
+      border: 1px solid var(--line2);
+      border-bottom-width: 2px;
+      border-radius: 7px;
+      background: rgba(255,255,255,0.075);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      z-index: 20;
+      border: 1px solid rgba(120,242,194,0.42);
+      border-radius: 16px;
+      background: rgba(5,7,11,0.86);
+      color: var(--text);
+      box-shadow: 0 18px 46px rgba(0,0,0,0.42);
+      padding: 11px 14px;
+      transition: opacity 180ms ease, transform 180ms ease;
+      pointer-events: none;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .side-panel *, .chart-card * {
+      min-width: 0;
+    }
+
+    @media (max-width: 1380px) {
+      .main { grid-template-columns: minmax(0, 1fr) 300px; }
+      .readout .value { font-size: 25px; }
+      .stat strong { font-size: 19px; }
+    }
+
+    @media (max-width: 1180px) {
+      .topbar, .controls, .main { grid-template-columns: 1fr; }
+      .headline-metric { justify-self: stretch; min-width: 0; }
+      .actions { min-width: 0; }
+      .side-panel { max-height: none; }
+    }
+
+    @media (max-width: 720px) {
+      .app { width: min(100vw - 18px, 1540px); padding-top: 10px; }
+      .control-grid, .view-buttons, .button-row, .actions, .stats-grid { grid-template-columns: 1fr; }
+      .chart-head { align-items: flex-start; flex-direction: column; }
+      .chart-badges { justify-content: flex-start; }
+      .chart-card { grid-template-rows: auto 460px auto; }
+      .floating-tip { display: none; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="calendar-section">
-            <div class="input-container">
-                <label for="dob">Enter your Date of Birth: </label>
-                <input type="date" id="dob">
-                <button onclick="generateLifeCalendar()">Generate Life Calendar</button>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <h1>Life Weeks</h1>
+        <p class="subtitle">A clearer life calendar: every square is one week, but the selected week is always shown in large readable text. Hover to inspect, click to lock, zoom into a decade, and export the result as an image.</p>
+      </div>
+      <section class="headline-metric" aria-label="Life progress summary">
+        <div class="metric-big"><span id="progressLabel">Enter a birth date</span><strong id="progressNumber">—</strong></div>
+        <div class="progress-shell"><div class="progress-fill" id="progressFill"></div></div>
+      </section>
+    </header>
+
+    <section class="controls" aria-label="Life calendar controls">
+      <div class="control-card">
+        <div class="control-grid">
+          <div class="field">
+            <label for="dobInput">Date of birth</label>
+            <input type="date" id="dobInput" />
+          </div>
+          <div class="field">
+            <label for="expectancyInput">Calendar length</label>
+            <input type="number" id="expectancyInput" min="40" max="130" value="100" />
+          </div>
+        </div>
+        <div class="range-line">
+          <span class="section-label">Life span shown</span>
+          <strong id="expectancyLabel">100 years</strong>
+          <input type="range" id="expectancyRange" min="40" max="130" value="100" />
+        </div>
+      </div>
+
+      <div class="control-card">
+        <span class="section-label">View</span>
+        <div class="view-buttons" role="group" aria-label="View mode">
+          <button id="viewAllBtn" class="active">Whole life</button>
+          <button id="viewCurrentBtn">Current chapter</button>
+          <button id="viewDecadeBtn">Decade zoom</button>
+        </div>
+        <div class="button-row">
+          <button id="prevDecadeBtn">← Previous decade</button>
+          <button id="jumpNowBtn" class="primary">Jump to now</button>
+          <button id="nextDecadeBtn">Next decade →</button>
+        </div>
+      </div>
+
+      <div class="control-card actions">
+        <button id="sampleBtn" class="warm">Try demo date</button>
+        <button id="downloadBtn">Export PNG</button>
+        <button id="fullscreenBtn">Full screen</button>
+        <button id="clearBtn">Clear saved data</button>
+      </div>
+    </section>
+
+    <main class="main">
+      <section class="chart-card" aria-label="Life weeks visualisation">
+        <div class="chart-head">
+          <div class="chart-title">
+            <strong id="viewTitle">Whole life view</strong>
+            <span id="viewSubtitle">100 rows × 52 columns. Hover or click any week.</span>
+          </div>
+          <div class="chart-badges">
+            <span class="badge" id="weeksBadge">— weeks</span>
+            <span class="badge" id="selectedBadge">No week selected</span>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="lifeCanvas" aria-label="Interactive life calendar canvas"></canvas>
+          <div class="floating-tip" id="floatingTip" aria-hidden="true"></div>
+          <div class="empty-state" id="emptyState">
+            <div class="empty-card">
+              <h2>Pick a birth date.</h2>
+              <p>This calendar shows every week in a chosen life span. Hover to inspect exact dates, click to lock a week, zoom into a decade, and export the chart as an image.</p>
             </div>
-            <div class="grid" id="lifeCalendar"></div>
+          </div>
         </div>
-        <div class="info-section">
-            <h2>Life Calendar</h2>
-            <p>
-                The Life Calendar is a visual representation of your life in weeks. Each square represents one week of your life, and the grid contains a total of 5200 squares, representing 100 years.
-            </p>
-            <p>
-                To use the Life Calendar, enter your date of birth in the input field and click "Generate Life Calendar". The squares will be colored to show the weeks you have already lived.
-            </p>
-            <p>
-                When you hover over a square, a tooltip will display the time in years and weeks, providing a clear indication of your age at that specific week.
-            </p>
-            <p>
-                The Life Calendar is a powerful reminder of the passage of time and can help you reflect on your life and prioritize what is truly important to you.
-            </p>
+        <div class="chart-footer">
+          <div class="legend">
+            <span class="legend-item"><i class="swatch" style="background:#3ce0a0"></i>Lived week</span>
+            <span class="legend-item"><i class="swatch" style="background:#f6c45c"></i>This week</span>
+            <span class="legend-item"><i class="swatch" style="background:#be9fff"></i>Target age</span>
+            <span class="legend-item"><i class="swatch" style="background:#2a3142"></i>Future week</span>
+          </div>
+          <span>Tip: click a week to lock it. Double-click a week to zoom into its decade.</span>
         </div>
-    </div>
+      </section>
 
-    <script>
-        function calculateWeeks(dob) {
-            const birthDate = new Date(dob);
-            const today = new Date();
-            const diffTime = Math.abs(today - birthDate);
-            return Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
-        }
+      <aside class="side-panel" aria-label="Selected week details">
+        <section class="readout">
+          <div class="label" id="readoutLabel">Selected week</div>
+          <div class="value" id="readoutValue">—</div>
+          <div class="sub" id="readoutSub">Hover over the calendar to inspect a week in readable detail.</div>
+        </section>
 
-        function generateLifeCalendar() {
-            const dob = document.getElementById('dob').value;
-            if (!dob) return;
-            
-            const weeksLived = calculateWeeks(dob);
-            const grid = document.getElementById('lifeCalendar');
-            grid.innerHTML = '';
-            
-            for (let i = 0; i < 5200; i++) {
-                const square = document.createElement('div');
-                square.className = 'square';
-                if (i < weeksLived) {
-                    square.classList.add('lived');
-                }
-                
-                const years = Math.floor(i / 52);
-                const weeks = i % 52;
-                const tooltipText = `${years} years, ${weeks} weeks`;
-                
-                square.setAttribute('data-tooltip', tooltipText);
-                grid.appendChild(square);
-            }
+        <section class="stats-grid">
+          <div class="stat"><span>Weeks lived</span><strong id="weeksLivedStat">—</strong><small id="weeksLivedSub">Enter a birth date</small></div>
+          <div class="stat"><span>Weeks left</span><strong id="weeksLeftStat">—</strong><small id="weeksLeftSub">Based on chosen calendar length</small></div>
+          <div class="stat"><span>Current age</span><strong id="ageStat">—</strong><small id="ageSub">Years and weeks</small></div>
+          <div class="stat"><span>Selected date</span><strong id="dateStat">—</strong><small id="dateSub">Week range</small></div>
+        </section>
+
+        <section class="target-card" aria-label="Retirement target">
+          <div class="target-head">
+            <span class="target-title">Retirement target</span>
+            <label class="toggle"><input type="checkbox" id="retireToggle" /> Show</label>
+          </div>
+          <div class="target-input-row">
+            <div class="field">
+              <label for="retireAgeInput">Target age</label>
+              <input type="number" id="retireAgeInput" min="1" max="130" value="55" />
+            </div>
+            <button id="jumpRetireBtn">Jump</button>
+          </div>
+          <div class="target-result">
+            <strong id="retireMain">Off</strong>
+            <small id="retireSub">Tick Show, then enter the age you want to highlight.</small>
+          </div>
+        </section>
+
+        <section class="keyboard">
+          <strong>Keyboard:</strong> <kbd>←</kbd>/<kbd>→</kbd> move selected week, <kbd>↑</kbd>/<kbd>↓</kbd> move by year, <kbd>N</kbd> jump to now, <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> change view.
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const MS_DAY = 24 * 60 * 60 * 1000;
+    const MS_WEEK = 7 * MS_DAY;
+    const STORAGE_KEY = 'lifeWeeksSupreme.v2';
+
+    const state = {
+      dob: '',
+      expectancy: 100,
+      view: 'all',
+      decade: 0,
+      retirementEnabled: false,
+      retirementAge: 55,
+      hoverIndex: null,
+      selectedIndex: null,
+      pointer: { x: 0, y: 0 },
+      grid: null
+    };
+
+    const els = {
+      dob: document.getElementById('dobInput'),
+      expectancyInput: document.getElementById('expectancyInput'),
+      expectancyRange: document.getElementById('expectancyRange'),
+      expectancyLabel: document.getElementById('expectancyLabel'),
+      canvas: document.getElementById('lifeCanvas'),
+      wrap: document.getElementById('canvasWrap'),
+      floatingTip: document.getElementById('floatingTip'),
+      emptyState: document.getElementById('emptyState'),
+      progressLabel: document.getElementById('progressLabel'),
+      progressNumber: document.getElementById('progressNumber'),
+      progressFill: document.getElementById('progressFill'),
+      viewTitle: document.getElementById('viewTitle'),
+      viewSubtitle: document.getElementById('viewSubtitle'),
+      weeksBadge: document.getElementById('weeksBadge'),
+      selectedBadge: document.getElementById('selectedBadge'),
+      readoutLabel: document.getElementById('readoutLabel'),
+      readoutValue: document.getElementById('readoutValue'),
+      readoutSub: document.getElementById('readoutSub'),
+      weeksLivedStat: document.getElementById('weeksLivedStat'),
+      weeksLivedSub: document.getElementById('weeksLivedSub'),
+      weeksLeftStat: document.getElementById('weeksLeftStat'),
+      weeksLeftSub: document.getElementById('weeksLeftSub'),
+      ageStat: document.getElementById('ageStat'),
+      ageSub: document.getElementById('ageSub'),
+      dateStat: document.getElementById('dateStat'),
+      dateSub: document.getElementById('dateSub'),
+      retireToggle: document.getElementById('retireToggle'),
+      retireAge: document.getElementById('retireAgeInput'),
+      retireMain: document.getElementById('retireMain'),
+      retireSub: document.getElementById('retireSub'),
+      jumpRetire: document.getElementById('jumpRetireBtn'),
+      toast: document.getElementById('toast'),
+      buttons: {
+        all: document.getElementById('viewAllBtn'),
+        current: document.getElementById('viewCurrentBtn'),
+        decade: document.getElementById('viewDecadeBtn'),
+        prev: document.getElementById('prevDecadeBtn'),
+        next: document.getElementById('nextDecadeBtn'),
+        now: document.getElementById('jumpNowBtn'),
+        sample: document.getElementById('sampleBtn'),
+        download: document.getElementById('downloadBtn'),
+        fullscreen: document.getElementById('fullscreenBtn'),
+        clear: document.getElementById('clearBtn')
+      }
+    };
+
+    const ctx = els.canvas.getContext('2d');
+    const dateFmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+    boot();
+
+    function boot() {
+      loadState();
+      syncInputs();
+      bindEvents();
+      resizeCanvas();
+      updateAll();
+      requestAnimationFrame(animationLoop);
+    }
+
+    function bindEvents() {
+      els.dob.addEventListener('input', () => {
+        state.dob = els.dob.value;
+        state.selectedIndex = null;
+        state.hoverIndex = null;
+        jumpToNow(false);
+        saveState();
+        updateAll();
+      });
+
+      els.expectancyInput.addEventListener('input', () => setExpectancy(els.expectancyInput.value));
+      els.expectancyRange.addEventListener('input', () => setExpectancy(els.expectancyRange.value));
+      els.retireToggle.addEventListener('change', () => setRetirementEnabled(els.retireToggle.checked));
+      els.retireAge.addEventListener('input', () => setRetirementAge(els.retireAge.value));
+      els.jumpRetire.addEventListener('click', jumpToRetirementTarget);
+
+      els.buttons.all.addEventListener('click', () => setView('all'));
+      els.buttons.current.addEventListener('click', () => setView('current'));
+      els.buttons.decade.addEventListener('click', () => setView('decade'));
+      els.buttons.prev.addEventListener('click', () => shiftDecade(-10));
+      els.buttons.next.addEventListener('click', () => shiftDecade(10));
+      els.buttons.now.addEventListener('click', () => { jumpToNow(true); showToast('Jumped to the current week.'); });
+      els.buttons.sample.addEventListener('click', setDemoDate);
+      els.buttons.download.addEventListener('click', downloadPng);
+      els.buttons.fullscreen.addEventListener('click', toggleFullscreen);
+      els.buttons.clear.addEventListener('click', clearSavedData);
+
+      els.wrap.addEventListener('pointermove', onPointerMove);
+      els.wrap.addEventListener('pointerleave', () => {
+        state.hoverIndex = null;
+        els.floatingTip.classList.remove('visible');
+        updateReadout();
+        draw();
+      });
+      els.wrap.addEventListener('click', () => {
+        if (state.hoverIndex !== null) {
+          state.selectedIndex = state.hoverIndex;
+          saveState();
+          updateReadout();
+          draw();
         }
-    </script>
+      });
+      els.wrap.addEventListener('dblclick', () => {
+        const index = state.hoverIndex ?? state.selectedIndex;
+        if (index !== null) {
+          const age = Math.floor(index / 52);
+          state.decade = clamp(Math.floor(age / 10) * 10, 0, Math.max(0, state.expectancy - 10));
+          setView('decade');
+          showToast(`Zoomed into ages ${state.decade}–${Math.min(state.decade + 9, state.expectancy - 1)}.`);
+        }
+      });
+
+      window.addEventListener('resize', resizeCanvas);
+      window.addEventListener('keydown', onKeyDown);
+    }
+
+    function setExpectancy(value) {
+      const next = clamp(Math.round(Number(value) || 100), 40, 130);
+      state.expectancy = next;
+      state.retirementAge = clamp(Math.round(state.retirementAge || 55), 1, state.expectancy);
+      if (state.selectedIndex !== null) state.selectedIndex = clamp(state.selectedIndex, 0, totalWeeks() - 1);
+      state.decade = clamp(state.decade, 0, Math.max(0, state.expectancy - 10));
+      syncInputs();
+      saveState();
+      updateAll();
+    }
+
+    function setRetirementEnabled(enabled) {
+      state.retirementEnabled = Boolean(enabled);
+      saveState();
+      updateAll();
+    }
+
+    function setRetirementAge(value) {
+      state.retirementAge = clamp(Math.round(Number(value) || 55), 1, state.expectancy);
+      syncInputs();
+      saveState();
+      updateAll();
+    }
+
+    function jumpToRetirementTarget() {
+      if (!state.retirementEnabled) {
+        state.retirementEnabled = true;
+        syncInputs();
+      }
+      const index = retirementIndex();
+      if (index === null) return;
+      state.selectedIndex = index;
+      state.decade = clamp(Math.floor(state.retirementAge / 10) * 10, 0, Math.max(0, state.expectancy - 10));
+      state.view = 'decade';
+      saveState();
+      updateAll();
+      showToast(`Jumped to target age ${state.retirementAge}.`);
+    }
+
+    function retirementIndex() {
+      if (!state.retirementEnabled) return null;
+      const age = clamp(Math.round(Number(state.retirementAge) || 55), 1, state.expectancy);
+      return clamp(age * 52, 0, totalWeeks() - 1);
+    }
+
+    function syncInputs() {
+      els.dob.value = state.dob || '';
+      els.expectancyInput.value = state.expectancy;
+      els.expectancyRange.value = state.expectancy;
+      els.expectancyLabel.textContent = `${state.expectancy} years`;
+      els.retireToggle.checked = state.retirementEnabled;
+      els.retireAge.max = state.expectancy;
+      els.retireAge.value = state.retirementAge;
+    }
+
+    function setView(view) {
+      state.view = view;
+      if (view === 'current') jumpToNow(false);
+      if (view === 'decade' && state.selectedIndex !== null) {
+        const age = Math.floor(state.selectedIndex / 52);
+        state.decade = clamp(Math.floor(age / 10) * 10, 0, Math.max(0, state.expectancy - 10));
+      }
+      updateViewButtons();
+      saveState();
+      updateAll();
+    }
+
+    function shiftDecade(amount) {
+      state.decade = clamp(state.decade + amount, 0, Math.max(0, state.expectancy - 10));
+      state.view = 'decade';
+      updateViewButtons();
+      saveState();
+      updateAll();
+    }
+
+    function jumpToNow(lockSelection = true) {
+      const info = getLifeInfo();
+      if (!info.valid) return;
+      const now = clamp(info.weeksLived, 0, totalWeeks() - 1);
+      if (lockSelection) state.selectedIndex = now;
+      state.decade = clamp(Math.floor(Math.floor(now / 52) / 10) * 10, 0, Math.max(0, state.expectancy - 10));
+      if (state.view === 'decade') state.decade = clamp(state.decade, 0, Math.max(0, state.expectancy - 10));
+    }
+
+    function setDemoDate() {
+      state.dob = '1990-01-01';
+      state.expectancy = 100;
+      state.selectedIndex = null;
+      state.hoverIndex = null;
+      state.view = 'all';
+      state.retirementEnabled = true;
+      state.retirementAge = 55;
+      syncInputs();
+      jumpToNow(true);
+      saveState();
+      updateAll();
+      showToast('Demo date loaded. Replace it with your own birth date whenever you like.');
+    }
+
+    function clearSavedData() {
+      localStorage.removeItem(STORAGE_KEY);
+      state.dob = '';
+      state.expectancy = 100;
+      state.view = 'all';
+      state.decade = 0;
+      state.hoverIndex = null;
+      state.selectedIndex = null;
+      state.retirementEnabled = false;
+      state.retirementAge = 55;
+      syncInputs();
+      updateAll();
+      showToast('Saved data cleared from this browser.');
+    }
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        if (!saved) return;
+        if (typeof saved.dob === 'string') state.dob = saved.dob;
+        if (Number.isFinite(saved.expectancy)) state.expectancy = clamp(Math.round(saved.expectancy), 40, 130);
+        if (['all', 'current', 'decade'].includes(saved.view)) state.view = saved.view;
+        if (Number.isFinite(saved.decade)) state.decade = clamp(Math.round(saved.decade), 0, 120);
+        if (typeof saved.retirementEnabled === 'boolean') state.retirementEnabled = saved.retirementEnabled;
+        if (Number.isFinite(saved.retirementAge)) state.retirementAge = clamp(Math.round(saved.retirementAge), 1, state.expectancy);
+        if (Number.isFinite(saved.selectedIndex)) state.selectedIndex = Math.max(0, Math.round(saved.selectedIndex));
+      } catch (error) {
+        console.warn('Could not load saved life calendar state.', error);
+      }
+    }
+
+    function saveState() {
+      const data = {
+        dob: state.dob,
+        expectancy: state.expectancy,
+        view: state.view,
+        decade: state.decade,
+        retirementEnabled: state.retirementEnabled,
+        retirementAge: state.retirementAge,
+        selectedIndex: state.selectedIndex
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function getLifeInfo() {
+      if (!state.dob) return { valid: false };
+      const birth = parseDate(state.dob);
+      if (!birth || Number.isNaN(birth.getTime())) return { valid: false };
+      const today = stripTime(new Date());
+      const weeksLived = Math.max(0, Math.floor((today - birth) / MS_WEEK));
+      const total = totalWeeks();
+      return {
+        valid: true,
+        birth,
+        today,
+        weeksLived,
+        total,
+        livedClamped: clamp(weeksLived, 0, total),
+        weeksLeft: Math.max(0, total - weeksLived),
+        percent: clamp((weeksLived / total) * 100, 0, 100)
+      };
+    }
+
+    function totalWeeks() {
+      return state.expectancy * 52;
+    }
+
+    function updateAll() {
+      updateViewButtons();
+      updateStats();
+      updateReadout();
+      draw();
+    }
+
+    function updateViewButtons() {
+      els.buttons.all.classList.toggle('active', state.view === 'all');
+      els.buttons.current.classList.toggle('active', state.view === 'current');
+      els.buttons.decade.classList.toggle('active', state.view === 'decade');
+    }
+
+    function updateStats() {
+      const info = getLifeInfo();
+      els.emptyState.style.display = info.valid ? 'none' : 'grid';
+
+      if (!info.valid) {
+        els.progressLabel.textContent = 'Enter a birth date';
+        els.progressNumber.textContent = '—';
+        els.progressFill.style.width = '0%';
+        els.weeksBadge.textContent = `${totalWeeks().toLocaleString()} weeks shown`;
+        els.weeksLivedStat.textContent = '—';
+        els.weeksLivedSub.textContent = 'Enter a birth date';
+        els.weeksLeftStat.textContent = '—';
+        els.weeksLeftSub.textContent = 'Based on chosen calendar length';
+        els.ageStat.textContent = '—';
+        els.ageSub.textContent = 'Years and weeks';
+        updateRetirementReadout(info);
+        return;
+      }
+
+      const years = Math.floor(info.weeksLived / 52);
+      const weeks = info.weeksLived % 52;
+      els.progressLabel.textContent = `${info.weeksLived.toLocaleString()} weeks lived`;
+      els.progressNumber.textContent = `${info.percent.toFixed(1)}%`;
+      els.progressFill.style.width = `${info.percent}%`;
+      els.weeksBadge.textContent = `${info.total.toLocaleString()} weeks shown`;
+      els.weeksLivedStat.textContent = info.weeksLived.toLocaleString();
+      els.weeksLivedSub.textContent = `${years}y ${weeks}w lived`;
+      els.weeksLeftStat.textContent = info.weeksLeft.toLocaleString();
+      els.weeksLeftSub.textContent = `${Math.floor(info.weeksLeft / 52)}y ${info.weeksLeft % 52}w left`;
+      els.ageStat.textContent = `${years}y ${weeks}w`;
+      els.ageSub.textContent = `week ${clamp(info.weeksLived + 1, 1, info.total).toLocaleString()} / ${info.total.toLocaleString()}`;
+      updateRetirementReadout(info);
+    }
+
+    function updateRetirementReadout(info) {
+      if (!state.retirementEnabled) {
+        els.retireMain.textContent = 'Off';
+        els.retireSub.textContent = 'Tick Show, then enter a target age such as 50, 55, 60, or 67.';
+        return;
+      }
+
+      const age = clamp(Math.round(Number(state.retirementAge) || 55), 1, state.expectancy);
+      state.retirementAge = age;
+      const targetIndex = retirementIndex();
+      if (!info.valid || targetIndex === null) {
+        els.retireMain.textContent = `Age ${age}`;
+        els.retireSub.textContent = 'Enter a birth date to calculate the target date and weeks remaining.';
+        return;
+      }
+
+      const diff = targetIndex - info.weeksLived;
+      const target = describeWeek(targetIndex, info.birth);
+      const dateText = `${dateFmt.format(target.start)} – ${dateFmt.format(target.end)}`;
+      if (diff > 0) {
+        els.retireMain.textContent = `${diff.toLocaleString()} weeks left`;
+        els.retireSub.textContent = `${Math.floor(diff / 52)}y ${diff % 52}w until age ${age}. Target week: ${dateText}.`;
+      } else if (diff === 0) {
+        els.retireMain.textContent = 'This week';
+        els.retireSub.textContent = `You reach age ${age} during ${dateText}.`;
+      } else {
+        const past = Math.abs(diff);
+        els.retireMain.textContent = `${past.toLocaleString()} weeks past`;
+        els.retireSub.textContent = `Age ${age} target was ${Math.floor(past / 52)}y ${past % 52}w ago. Target week: ${dateText}.`;
+      }
+    }
+
+    function updateReadout() {
+      const info = getLifeInfo();
+      const active = state.hoverIndex ?? state.selectedIndex;
+      const current = info.valid ? clamp(info.weeksLived, 0, totalWeeks() - 1) : null;
+
+      if (!info.valid) {
+        els.selectedBadge.textContent = 'No birth date yet';
+        els.readoutLabel.textContent = 'Selected week';
+        els.readoutValue.textContent = '—';
+        els.readoutSub.textContent = 'Enter a date of birth, then hover over the grid. The exact week appears here in large text.';
+        els.dateStat.textContent = '—';
+        els.dateSub.textContent = 'Week range';
+        return;
+      }
+
+      const index = active ?? current;
+      const d = describeWeek(index, info.birth);
+      const isNow = index === current;
+      const locked = state.selectedIndex !== null && active === state.selectedIndex && state.hoverIndex === null;
+
+      const targetForBadge = retirementIndex();
+      els.selectedBadge.textContent = targetForBadge !== null && index === targetForBadge ? `Target age ${state.retirementAge}` : isNow ? 'This week selected' : `Week ${index + 1}`;
+      const target = retirementIndex();
+      els.readoutLabel.textContent = target !== null && index === target ? 'Retirement target' : isNow ? 'This week' : locked ? 'Locked week' : 'Hovered week';
+      els.readoutValue.textContent = `Age ${d.age}, week ${d.weekOfYear}`;
+      els.readoutSub.textContent = `${dateFmt.format(d.start)} – ${dateFmt.format(d.end)} · week ${index + 1} of ${info.total.toLocaleString()}`;
+      els.dateStat.textContent = dateFmt.format(d.start);
+      els.dateSub.textContent = `to ${dateFmt.format(d.end)}`;
+    }
+
+
+    function onPointerMove(event) {
+      const rect = els.wrap.getBoundingClientRect();
+      state.pointer.x = event.clientX - rect.left;
+      state.pointer.y = event.clientY - rect.top;
+      const index = weekIndexFromPoint(state.pointer.x, state.pointer.y);
+      state.hoverIndex = index;
+      if (index !== null) showFloatingTip(index, state.pointer.x, state.pointer.y);
+      else els.floatingTip.classList.remove('visible');
+      updateReadout();
+      draw();
+    }
+
+    function onKeyDown(event) {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      const info = getLifeInfo();
+      if (event.key === '1') setView('all');
+      if (event.key === '2') setView('current');
+      if (event.key === '3') setView('decade');
+      if (!info.valid) return;
+
+      let index = state.selectedIndex ?? clamp(info.weeksLived, 0, totalWeeks() - 1);
+      let handled = true;
+      if (event.key === 'ArrowLeft') index -= 1;
+      else if (event.key === 'ArrowRight') index += 1;
+      else if (event.key === 'ArrowUp') index -= 52;
+      else if (event.key === 'ArrowDown') index += 52;
+      else if (event.key.toLowerCase() === 'n') index = clamp(info.weeksLived, 0, totalWeeks() - 1);
+      else handled = false;
+
+      if (handled) {
+        event.preventDefault();
+        state.selectedIndex = clamp(index, 0, totalWeeks() - 1);
+        if (state.view === 'decade') {
+          const age = Math.floor(state.selectedIndex / 52);
+          if (age < state.decade || age >= state.decade + 10) {
+            state.decade = clamp(Math.floor(age / 10) * 10, 0, Math.max(0, state.expectancy - 10));
+          }
+        }
+        saveState();
+        updateAll();
+      }
+    }
+
+    function showFloatingTip(index, x, y) {
+      const info = getLifeInfo();
+      if (!info.valid) return;
+      const d = describeWeek(index, info.birth);
+      const current = clamp(info.weeksLived, 0, totalWeeks() - 1);
+      const target = retirementIndex();
+      const status = target !== null && index === target ? `Target age ${state.retirementAge}` : index < current ? 'Lived week' : index === current ? 'This week' : 'Future week';
+      els.floatingTip.innerHTML = `
+        <div class="tip-kicker">${escapeHtml(status)}</div>
+        <div class="tip-main">Age ${d.age}, week ${d.weekOfYear}</div>
+        <div class="tip-sub">${escapeHtml(dateFmt.format(d.start))} – ${escapeHtml(dateFmt.format(d.end))}<br>Week ${(index + 1).toLocaleString()} of ${totalWeeks().toLocaleString()}</div>
+      `;
+      const wrapRect = els.wrap.getBoundingClientRect();
+      const tipWidth = 300;
+      const tipHeight = 120;
+      let left = x;
+      let top = y;
+      if (left + tipWidth + 30 > wrapRect.width) left = x - tipWidth - 26;
+      if (top + tipHeight + 30 > wrapRect.height) top = y - tipHeight - 26;
+      els.floatingTip.style.left = `${Math.max(8, left)}px`;
+      els.floatingTip.style.top = `${Math.max(8, top)}px`;
+      els.floatingTip.classList.add('visible');
+    }
+
+    function animationLoop() {
+      draw();
+      requestAnimationFrame(animationLoop);
+    }
+
+    function resizeCanvas() {
+      const rect = els.wrap.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      els.canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      els.canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      els.canvas.style.width = `${rect.width}px`;
+      els.canvas.style.height = `${rect.height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    }
+
+    function draw() {
+      const rect = els.wrap.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      ctx.clearRect(0, 0, width, height);
+
+      const info = getLifeInfo();
+      if (!info.valid) {
+        drawAmbient(width, height);
+        return;
+      }
+
+      const view = computeView(info);
+      const grid = computeGrid(width, height, view);
+      state.grid = { ...grid, ...view };
+
+      updateViewText(view);
+      drawBackgroundBands(grid, view);
+      drawCells(grid, view, info);
+      drawRetirementTarget(grid, view, info);
+      drawSelection(grid, view, info);
+      drawAxisLabels(grid, view);
+    }
+
+    function drawAmbient(width, height) {
+      const now = performance.now() * 0.001;
+      for (let i = 0; i < 80; i++) {
+        const x = (Math.sin(i * 17.12 + now * 0.22) * 0.5 + 0.5) * width;
+        const y = (Math.cos(i * 11.7 + now * 0.18) * 0.5 + 0.5) * height;
+        const r = 1.5 + (i % 9) * 0.34;
+        ctx.globalAlpha = 0.06 + (i % 5) * 0.008;
+        ctx.fillStyle = i % 3 === 0 ? '#78f2c2' : i % 3 === 1 ? '#f6c45c' : '#ff7c8a';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function computeView(info) {
+      let startYear = 0;
+      let years = state.expectancy;
+      if (state.view === 'current') {
+        const currentAge = Math.floor(info.weeksLived / 52);
+        years = Math.min(12, state.expectancy);
+        startYear = clamp(currentAge - 5, 0, Math.max(0, state.expectancy - years));
+      } else if (state.view === 'decade') {
+        years = Math.min(10, state.expectancy);
+        startYear = clamp(state.decade, 0, Math.max(0, state.expectancy - years));
+      }
+      const startIndex = startYear * 52;
+      const endIndex = Math.min(totalWeeks(), (startYear + years) * 52);
+      return { startYear, years, startIndex, endIndex };
+    }
+
+    function computeGrid(width, height, view) {
+      const small = width < 680;
+      const left = small ? 38 : 56;
+      const right = 16;
+      const top = 28;
+      const bottom = 42;
+      const x = left;
+      const y = top;
+      const w = Math.max(10, width - left - right);
+      const h = Math.max(10, height - top - bottom);
+      const cellW = w / 52;
+      const cellH = h / view.years;
+      const gap = clamp(Math.min(cellW, cellH) * 0.15, 0.45, state.view === 'all' ? 2 : 4);
+      return { x, y, w, h, cellW, cellH, gap, left, top, right, bottom };
+    }
+
+    function drawBackgroundBands(grid, view) {
+      for (let y = 0; y < view.years; y++) {
+        const age = view.startYear + y;
+        ctx.fillStyle = seasonColor(age, 0.11);
+        ctx.fillRect(grid.x, grid.y + y * grid.cellH, grid.w, grid.cellH);
+      }
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(grid.x - 0.5, grid.y - 0.5, grid.w + 1, grid.h + 1);
+
+      for (let age = Math.ceil(view.startYear / 10) * 10; age <= view.startYear + view.years; age += 10) {
+        const rel = age - view.startYear;
+        if (rel < 0 || rel > view.years) continue;
+        const yy = grid.y + rel * grid.cellH;
+        ctx.strokeStyle = 'rgba(255,255,255,0.20)';
+        ctx.beginPath();
+        ctx.moveTo(grid.x, yy);
+        ctx.lineTo(grid.x + grid.w, yy);
+        ctx.stroke();
+      }
+
+      for (let q = 13; q < 52; q += 13) {
+        const xx = grid.x + q * grid.cellW;
+        ctx.strokeStyle = 'rgba(255,255,255,0.085)';
+        ctx.beginPath();
+        ctx.moveTo(xx, grid.y);
+        ctx.lineTo(xx, grid.y + grid.h);
+        ctx.stroke();
+      }
+    }
+
+    function drawCells(grid, view, info) {
+      const current = clamp(info.weeksLived, 0, totalWeeks() - 1);
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.004);
+
+      for (let i = view.startIndex; i < view.endIndex; i++) {
+        const age = Math.floor(i / 52);
+        const week = i % 52;
+        const row = age - view.startYear;
+        const x = grid.x + week * grid.cellW + grid.gap / 2;
+        const y = grid.y + row * grid.cellH + grid.gap / 2;
+        const w = Math.max(0.8, grid.cellW - grid.gap);
+        const h = Math.max(0.8, grid.cellH - grid.gap);
+
+        if (i < current) ctx.fillStyle = livedColor(i, info.total);
+        else if (i === current) ctx.fillStyle = `rgba(246,196,92,${0.82 + pulse * 0.18})`;
+        else ctx.fillStyle = futureColor(age);
+
+        roundRect(ctx, x, y, w, h, Math.min(3.2, w * 0.35, h * 0.35));
+        ctx.fill();
+      }
+    }
+
+
+    function drawRetirementTarget(grid, view, info) {
+      const target = retirementIndex();
+      if (target === null || target < view.startIndex || target >= view.endIndex) return;
+      const age = Math.floor(target / 52);
+      const week = target % 52;
+      const row = age - view.startYear;
+      const x = grid.x + week * grid.cellW;
+      const y = grid.y + row * grid.cellH;
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.0055);
+
+      ctx.save();
+      ctx.fillStyle = `rgba(190,159,255,${0.11 + pulse * 0.08})`;
+      ctx.fillRect(grid.x, y, grid.w, grid.cellH);
+      ctx.fillRect(x, grid.y, grid.cellW, grid.h);
+      strokeCell(target, grid, view, 'rgba(190,159,255,0.98)', 3.2);
+
+      const cx = x + grid.cellW / 2;
+      const cy = y + grid.cellH / 2;
+      const r = clamp(Math.min(grid.cellW, grid.cellH) * 0.55, 4, 13);
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = 'rgba(190,159,255,0.96)';
+      ctx.shadowColor = 'rgba(190,159,255,0.82)';
+      ctx.shadowBlur = 16;
+      roundRect(ctx, -r, -r, r * 2, r * 2, 2.5);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawSelection(grid, view, info) {
+      const active = state.hoverIndex ?? state.selectedIndex;
+      const current = clamp(info.weeksLived, 0, totalWeeks() - 1);
+
+      if (current >= view.startIndex && current < view.endIndex) {
+        strokeCell(current, grid, view, 'rgba(246,196,92,0.95)', 2.2);
+      }
+
+      if (active === null || active < view.startIndex || active >= view.endIndex) return;
+      const age = Math.floor(active / 52);
+      const week = active % 52;
+      const row = age - view.startYear;
+      const x = grid.x + week * grid.cellW;
+      const y = grid.y + row * grid.cellH;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(120,242,194,0.075)';
+      ctx.fillRect(grid.x, y, grid.w, grid.cellH);
+      ctx.fillRect(x, grid.y, grid.cellW, grid.h);
+      ctx.restore();
+
+      strokeCell(active, grid, view, 'rgba(120,242,194,1)', 3);
+
+      const lensSize = clamp(Math.max(grid.cellW, grid.cellH) * 2.5, 18, 52);
+      const cx = x + grid.cellW / 2;
+      const cy = y + grid.cellH / 2;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120,242,194,0.95)';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(120,242,194,0.52)';
+      ctx.shadowBlur = 18;
+      roundRect(ctx, cx - lensSize / 2, cy - lensSize / 2, lensSize, lensSize, 8);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function strokeCell(index, grid, view, color, lineWidth) {
+      const age = Math.floor(index / 52);
+      const week = index % 52;
+      const row = age - view.startYear;
+      const x = grid.x + week * grid.cellW + grid.gap / 2;
+      const y = grid.y + row * grid.cellH + grid.gap / 2;
+      const w = Math.max(0.8, grid.cellW - grid.gap);
+      const h = Math.max(0.8, grid.cellH - grid.gap);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      roundRect(ctx, x, y, w, h, Math.min(4, w * 0.35, h * 0.35));
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawAxisLabels(grid, view) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(244,247,251,0.7)';
+      ctx.font = '700 11px ui-sans-serif, system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+
+      const labelEvery = state.view === 'all' ? 10 : 1;
+      for (let age = view.startYear; age < view.startYear + view.years; age++) {
+        if (age % labelEvery !== 0 && age !== view.startYear) continue;
+        const y = grid.y + (age - view.startYear) * grid.cellH + grid.cellH / 2;
+        ctx.fillText(String(age), grid.x - 9, y);
+      }
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(168,179,199,0.72)';
+      for (const week of [1, 13, 26, 39, 52]) {
+        const x = grid.x + (week - 0.5) * grid.cellW;
+        ctx.fillText(`W${week}`, x, grid.y + grid.h + 13);
+      }
+      ctx.fillStyle = 'rgba(168,179,199,0.86)';
+      ctx.textAlign = 'left';
+      ctx.fillText('Age', 8, grid.y - 20);
+      ctx.restore();
+    }
+
+    function updateViewText(view) {
+      const endAge = view.startYear + view.years - 1;
+      if (state.view === 'all') {
+        els.viewTitle.textContent = 'Whole life view';
+        els.viewSubtitle.textContent = `${state.expectancy} rows × 52 weeks. Use hover/click to inspect exact weeks.`;
+      } else if (state.view === 'current') {
+        els.viewTitle.textContent = 'Current chapter';
+        els.viewSubtitle.textContent = `Showing ages ${view.startYear}–${endAge}, enlarged for easier reading.`;
+      } else {
+        els.viewTitle.textContent = `Decade zoom: ages ${view.startYear}–${endAge}`;
+        els.viewSubtitle.textContent = 'Large readable cells and easier week picking.';
+      }
+    }
+
+    function weekIndexFromPoint(px, py) {
+      const info = getLifeInfo();
+      if (!info.valid || !state.grid) return null;
+      const g = state.grid;
+      if (px < g.x || px > g.x + g.w || py < g.y || py > g.y + g.h) return null;
+      const week = clamp(Math.floor((px - g.x) / g.cellW), 0, 51);
+      const row = clamp(Math.floor((py - g.y) / g.cellH), 0, g.years - 1);
+      const index = (g.startYear + row) * 52 + week;
+      if (index < g.startIndex || index >= g.endIndex || index >= totalWeeks()) return null;
+      return index;
+    }
+
+    function describeWeek(index, birth) {
+      const start = addDays(birth, index * 7);
+      const end = addDays(start, 6);
+      const age = Math.floor(index / 52);
+      const weekOfYear = (index % 52) + 1;
+      return { start, end, age, weekOfYear };
+    }
+
+    function parseDate(value) {
+      const [y, m, d] = value.split('-').map(Number);
+      if (!y || !m || !d) return null;
+      return stripTime(new Date(y, m - 1, d));
+    }
+
+    function stripTime(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function addDays(date, days) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + days);
+      return d;
+    }
+
+    function livedColor(i, total) {
+      const p = i / Math.max(1, total - 1);
+      const hue = 156 - p * 18;
+      const light = 48 + Math.sin(p * Math.PI) * 8;
+      return `hsl(${hue} 70% ${light}%)`;
+    }
+
+    function futureColor(age) {
+      const alpha = 0.70 + (age % 2) * 0.07;
+      return `rgba(42,49,66,${alpha})`;
+    }
+
+    function seasonColor(age, alpha) {
+      if (age < 13) return `rgba(120,242,194,${alpha})`;
+      if (age < 20) return `rgba(112,182,255,${alpha})`;
+      if (age < 35) return `rgba(246,196,92,${alpha})`;
+      if (age < 55) return `rgba(255,158,123,${alpha})`;
+      if (age < 75) return `rgba(190,159,255,${alpha})`;
+      return `rgba(255,124,138,${alpha})`;
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.max(0, Math.min(r, w / 2, h / 2));
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function downloadPng() {
+      const info = getLifeInfo();
+      if (!info.valid) {
+        showToast('Enter a birth date before exporting.');
+        return;
+      }
+      draw();
+      const link = document.createElement('a');
+      link.download = 'life-weeks-calendar.png';
+      link.href = els.canvas.toDataURL('image/png');
+      link.click();
+      showToast('PNG exported.');
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add('visible');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => els.toast.classList.remove('visible'), 1800);
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+  </script>
 </body>
 </html>
-

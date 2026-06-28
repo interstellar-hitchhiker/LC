@@ -813,7 +813,7 @@
   <script>
     const MS_DAY = 24 * 60 * 60 * 1000;
     const MS_WEEK = 7 * MS_DAY;
-    const STORAGE_KEY = 'lifeWeeksSupreme.v2';
+    const STORAGE_KEY = 'lifeWeeksSupreme.v3';
 
     const state = {
       dob: '',
@@ -984,10 +984,43 @@
       showToast(`Jumped to target age ${state.retirementAge}.`);
     }
 
+    function retirementTargetDate(birth, age) {
+      const y = birth.getFullYear() + age;
+      const m = birth.getMonth();
+      const d = birth.getDate();
+      const target = new Date(y, m, d);
+
+      // If someone was born on 29 Feb and the target year is not a leap year,
+      // JavaScript rolls the date to 1 Mar. For this app, keep the target in February.
+      if (m === 1 && d === 29 && target.getMonth() !== 1) {
+        return stripTime(new Date(y, 1, 28));
+      }
+      return stripTime(target);
+    }
+
+    function calendarAgeParts(birth, onDate) {
+      let years = onDate.getFullYear() - birth.getFullYear();
+      let birthdayThisAge = retirementTargetDate(birth, years);
+      if (birthdayThisAge > onDate) {
+        years -= 1;
+        birthdayThisAge = retirementTargetDate(birth, years);
+      }
+      const daysSinceBirthday = Math.max(0, Math.floor((stripTime(onDate) - birthdayThisAge) / MS_DAY));
+      return {
+        years,
+        weeks: Math.floor(daysSinceBirthday / 7),
+        days: daysSinceBirthday % 7,
+        daysSinceBirthday
+      };
+    }
+
     function retirementIndex() {
-      if (!state.retirementEnabled) return null;
+      if (!state.retirementEnabled || !state.dob) return null;
+      const birth = parseDate(state.dob);
+      if (!birth || Number.isNaN(birth.getTime())) return null;
       const age = clamp(Math.round(Number(state.retirementAge) || 55), 1, state.expectancy);
-      return clamp(age * 52, 0, totalWeeks() - 1);
+      const targetDate = retirementTargetDate(birth, age);
+      return clamp(Math.floor((targetDate - birth) / MS_WEEK), 0, totalWeeks() - 1);
     }
 
     function syncInputs() {
@@ -1143,18 +1176,17 @@
         return;
       }
 
-      const years = Math.floor(info.weeksLived / 52);
-      const weeks = info.weeksLived % 52;
+      const ageParts = calendarAgeParts(info.birth, info.today);
       els.progressLabel.textContent = `${info.weeksLived.toLocaleString()} weeks lived`;
       els.progressNumber.textContent = `${info.percent.toFixed(1)}%`;
       els.progressFill.style.width = `${info.percent}%`;
       els.weeksBadge.textContent = `${info.total.toLocaleString()} weeks shown`;
       els.weeksLivedStat.textContent = info.weeksLived.toLocaleString();
-      els.weeksLivedSub.textContent = `${years}y ${weeks}w lived`;
+      els.weeksLivedSub.textContent = `${ageParts.years}y ${ageParts.weeks}w ${ageParts.days}d old`;
       els.weeksLeftStat.textContent = info.weeksLeft.toLocaleString();
-      els.weeksLeftSub.textContent = `${Math.floor(info.weeksLeft / 52)}y ${info.weeksLeft % 52}w left`;
-      els.ageStat.textContent = `${years}y ${weeks}w`;
-      els.ageSub.textContent = `week ${clamp(info.weeksLived + 1, 1, info.total).toLocaleString()} / ${info.total.toLocaleString()}`;
+      els.weeksLeftSub.textContent = `${Math.floor(info.weeksLeft / 52)}y ${info.weeksLeft % 52}w left in this 52-week-row grid`;
+      els.ageStat.textContent = `${ageParts.years}y ${ageParts.weeks}w`;
+      els.ageSub.textContent = `${ageParts.days}d into this week · week ${clamp(info.weeksLived + 1, 1, info.total).toLocaleString()} / ${info.total.toLocaleString()}`;
       updateRetirementReadout(info);
     }
 
@@ -1170,23 +1202,28 @@
       const targetIndex = retirementIndex();
       if (!info.valid || targetIndex === null) {
         els.retireMain.textContent = `Age ${age}`;
-        els.retireSub.textContent = 'Enter a birth date to calculate the target date and weeks remaining.';
+        els.retireSub.textContent = 'Enter a birth date to calculate the real birthday week, including leap years.';
         return;
       }
 
-      const diff = targetIndex - info.weeksLived;
+      const targetDate = retirementTargetDate(info.birth, age);
+      const daysToTarget = Math.ceil((targetDate - info.today) / MS_DAY);
       const target = describeWeek(targetIndex, info.birth);
       const dateText = `${dateFmt.format(target.start)} – ${dateFmt.format(target.end)}`;
-      if (diff > 0) {
-        els.retireMain.textContent = `${diff.toLocaleString()} weeks left`;
-        els.retireSub.textContent = `${Math.floor(diff / 52)}y ${diff % 52}w until age ${age}. Target week: ${dateText}.`;
-      } else if (diff === 0) {
-        els.retireMain.textContent = 'This week';
-        els.retireSub.textContent = `You reach age ${age} during ${dateText}.`;
+      const absDays = Math.abs(daysToTarget);
+      const fullWeeks = Math.floor(absDays / 7);
+      const extraDays = absDays % 7;
+      const compact = `${fullWeeks.toLocaleString()}w ${extraDays}d`;
+
+      if (daysToTarget > 0) {
+        els.retireMain.textContent = `${fullWeeks.toLocaleString()} weeks left`;
+        els.retireSub.textContent = `${compact} until your ${age}th birthday on ${dateFmt.format(targetDate)}. Highlighted week: ${dateText}.`;
+      } else if (daysToTarget === 0) {
+        els.retireMain.textContent = 'Today';
+        els.retireSub.textContent = `You reach age ${age} today. Highlighted week: ${dateText}.`;
       } else {
-        const past = Math.abs(diff);
-        els.retireMain.textContent = `${past.toLocaleString()} weeks past`;
-        els.retireSub.textContent = `Age ${age} target was ${Math.floor(past / 52)}y ${past % 52}w ago. Target week: ${dateText}.`;
+        els.retireMain.textContent = `${fullWeeks.toLocaleString()} weeks past`;
+        els.retireSub.textContent = `Age ${age} was ${compact} ago, on ${dateFmt.format(targetDate)}. Highlighted week: ${dateText}.`;
       }
     }
 
